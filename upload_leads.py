@@ -11,16 +11,100 @@ import time  # Для создания задержек между запрос�
 import os    # Для работы с файловой системой
 from typing import Dict, Any  # Для типизации данных
 
+import requests  # Для HTTP-запросов в Битрикс24
 import pandas as pd  # Для работы с Excel файлами
 from tkinter import Tk, filedialog  # Для создания диалогового окна выбора файла
 from dotenv import load_dotenv  # Для загрузки переменных окружения из .env
 
-# Импортируем наши модули (они лежат в той же директории, что и этот скрипт)
-from bitrix24 import send_to_bitrix24  # Функция для отправки лида в Битрикс24
+# Импортируем наш логгер
 from setup import logger  # Логгер для записи событий
 
 # Загружаем переменные окружения из .env (если файл существует)
 load_dotenv()
+
+
+def send_to_bitrix24(lead_data: Dict[str, Any], config: Dict[str, str] | None = None) -> bool:
+    """
+    Отправляет данные лида в Битрикс24 через REST API.
+
+    Args:
+        lead_data (dict): Данные о лиде
+        config (dict, optional): Дополнительные настройки для Битрикс24
+
+    Returns:
+        bool: True, если отправка прошла успешно, иначе False
+    """
+    try:
+        # Если конфиг не передан, пробуем взять URL вебхука только из переменной окружения
+        if config is None:
+            webhook_url = os.getenv("BITRIX_SUPERMET_WEBHOOK_URL")
+            if not webhook_url:
+                logger.error(
+                    "BITRIX_SUPERMET_WEBHOOK_URL не задан. "
+                    "Укажите URL вебхука в .env или передайте его через параметр config."
+                )
+                return False
+
+            config = {
+                "webhook_url": webhook_url
+            }
+
+        # Получаем телефон из данных
+        phone = lead_data.get("phone", "")
+
+        # Формируем данные для создания лида
+        lead_payload = {
+            "fields": {
+                "TITLE": f"LR_конк_ {phone}",  # Название лида
+                "PHONE": [{"VALUE": phone, "VALUE_TYPE": "WORK"}],  # Телефон
+                "SOURCE_ID": "106",
+                "STATUS_ID": "UC_LF7L5W",
+                "ASSIGNED_BY_ID": "20140",
+            }
+        }
+
+        # Добавляем комментарий, если он есть
+        if "comments" in lead_data:
+            lead_payload["fields"]["COMMENTS"] = lead_data["comments"]
+
+        logger.info(f"Отправка запроса на создание лида в Битрикс24")
+        logger.info(f"Данные лида: {lead_payload}")
+
+        # Отправляем запрос в Битрикс24
+        response = requests.post(
+            config["webhook_url"],
+            json=lead_payload,
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+        )
+
+        # Логируем ответ от сервера для отладки
+        logger.info(f"Ответ сервера: {response.status_code} - {response.text}")
+
+        if 200 <= response.status_code < 300:
+            result = response.json()
+            lead_id = result.get("result")
+
+            if not lead_id:
+                raise ValueError("Не удалось получить ID лида из ответа Битрикс24")
+
+            logger.info(f"Лид успешно создан в Битрикс24, ID: {lead_id}")
+
+            return True
+        else:
+            error_message = (
+                f"Ошибка при создании лида. Код ответа: {response.status_code}, "
+                f"ответ: {response.text}"
+            )
+            logger.error(error_message)
+
+            return False
+
+    except Exception as e:
+        error_message = f"Ошибка при отправке данных в Битрикс24: {e}"
+        logger.error(error_message)
+
+        return False
 
 def read_leads_from_excel(file_path: str) -> list[Dict[str, Any]]:
     """

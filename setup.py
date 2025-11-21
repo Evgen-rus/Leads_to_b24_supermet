@@ -1,12 +1,13 @@
 """
-Модуль конфигурации проекта
+Модуль конфигурации проекта.
+Отвечает за настройку логирования.
 """
-import os
 import logging
 from pathlib import Path
 
 # Базовые пути
-BASE_DIR = Path(__file__).resolve().parent.parent
+# BASE_DIR - директория, где лежит этот файл (корень проекта)
+BASE_DIR = Path(__file__).resolve().parent
 LOGS_DIR = BASE_DIR / 'logs'
 
 # Создаем необходимые директории
