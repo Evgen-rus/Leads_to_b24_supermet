@@ -7,7 +7,6 @@
 #### 1.1 Webhook URL для Битрикс24
 - **Что это:** Специальный URL для доступа к API Битрикс24 клиента
 - **Формат:** `https://[ПОРТАЛ].bitrix24.ru/rest/[USER_ID]/[WEBHOOK_KEY]/`
-- **Пример:** `https://supermet.bitrix24.ru/rest/3900/bq745g4ngowz4z43/`
 
 **Как клиент может получить Webhook URL:**
 1. Зайти в свой Битрикс24
